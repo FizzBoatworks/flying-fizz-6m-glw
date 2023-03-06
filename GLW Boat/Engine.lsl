@@ -211,8 +211,8 @@ float gfWaveHeightx1;
 float gfWaveHeelMaxX;
 float gfWaveHeelMaxY;
 float gfwaveHeelMax;
-string gsWaveBoatPosSymbol;    //Hud Symbol up or down wave / or \
-string gsWaveBoatHeelSymbol;   //Hud Symbol inclination wave / or \
+string gsWaveBoatPosSymbol;    //Hud Symbol up or down wave
+string gsWaveBoatHeelSymbol;   //Hud Symbol inclination wave
 float gfWaveBoatPos;       //height of the boat in the wave 
 float gfWaveSpeedEffectX;
 float gfSteerEffect;

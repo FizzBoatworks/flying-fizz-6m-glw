@@ -129,7 +129,6 @@ integer giSailSide;   //-1 port    1 Stb
 float   gfSeaLevel;
 float   gfExtraHeight;
 integer giSailMode;  //0-moored  1-sailing
-integer giSteeringDir;
 float   gfRudderSteerEffect_z;
 integer giHud;  //0-normal  1-extended1  2-extended2
 float gfCtrlTimer; //Control event local var for SetTimerEvent
@@ -625,16 +624,22 @@ default
         if(edge & giVCtl){  //left or right keys helm. raise and leave state swstate>1
             gfCtrlTimer=0.05;
             if(edge & level & giVCrr) {    //right    //<==== v1.11  invert command and mouselook
-                gfRudderSteerEffect_z=0.6+(gfSpeed/25);
-                giSteeringDir=1;
+                float lfHealFactor;
+                if (giSailSide < 0) lfHealFactor = -(gfTotalHeelX/6.5);
+                if (giSailSide > 0) lfHealFactor = (gfTotalHeelX/6.5);
+                gfRudderSteerEffect_z=(0.5+lfHealFactor+(gfSpeed/100));
+                llSay(0, (string)gfRudderSteerEffect_z);
                 llStopAnimation(gsAnim);
                 gsAnim=gsAnimBase+"-R";
                 llStartAnimation(gsAnim);
                 llSetLinkPrimitiveParamsFast(giRUDDER,[PRIM_ROT_LOCAL, llEuler2Rot(<0,0,-21>*DEG_TO_RAD)]);
                 llSetVehicleVectorParam  (VEHICLE_LINEAR_FRICTION_TIMESCALE,<100.0,0.05,0.5>);
             } else if(edge & level & giVCrl) {  //left      //<==== v1.11  invert command and mouselook
-                gfRudderSteerEffect_z=-0.6+(gfSpeed/25);
-                giSteeringDir=-1;
+                float lfHealFactor;
+                if (giSailSide < 0) lfHealFactor = (gfTotalHeelX/6.5);
+                if (giSailSide > 0) lfHealFactor = -(gfTotalHeelX/6.5);
+                gfRudderSteerEffect_z=-(0.5+lfHealFactor+(gfSpeed/100));
+                llSay(0, (string)gfRudderSteerEffect_z);
                 llStopAnimation(gsAnim);
                 gsAnim=gsAnimBase+"-L";
                 llStartAnimation(gsAnim);
@@ -642,7 +647,6 @@ default
                 llSetVehicleVectorParam  (VEHICLE_LINEAR_FRICTION_TIMESCALE,<100.0,0.05,0.5>);
             } else if(edge & giVCtl) {   //up arrow key
                 gfRudderSteerEffect_z=0.0;
-                giSteeringDir=0;
                 llStopAnimation(gsAnim);
                 gsAnim=gsAnimBase;
                 llStartAnimation(gsAnim);

@@ -628,7 +628,6 @@ default
                 if (giSailSide < 0) lfHealFactor = -(gfTotalHeelX/6.5);
                 if (giSailSide > 0) lfHealFactor = (gfTotalHeelX/6.5);
                 gfRudderSteerEffect_z=(0.5+lfHealFactor+(gfSpeed/100));
-                llSay(0, (string)gfRudderSteerEffect_z);
                 llStopAnimation(gsAnim);
                 gsAnim=gsAnimBase+"-R";
                 llStartAnimation(gsAnim);
@@ -639,7 +638,6 @@ default
                 if (giSailSide < 0) lfHealFactor = (gfTotalHeelX/6.5);
                 if (giSailSide > 0) lfHealFactor = -(gfTotalHeelX/6.5);
                 gfRudderSteerEffect_z=-(0.5+lfHealFactor+(gfSpeed/100));
-                llSay(0, (string)gfRudderSteerEffect_z);
                 llStopAnimation(gsAnim);
                 gsAnim=gsAnimBase+"-L";
                 llStartAnimation(gsAnim);
@@ -696,7 +694,6 @@ default
                 llSetLinkPrimitiveParamsFast( giJIB, [PRIM_ROT_LOCAL, grSailRot*llEuler2Rot(cvJibRot*DEG_TO_RAD)]);         //set jib
             }else if(grSailRot.z<0.0) {   //change sails side
                 giSailSide=-1;   //starboard
-                llSay(0, "starboard");
                 llSetLinkPrimitiveParamsFast( giMAIN, [PRIM_ROT_LOCAL, grSailRot*llEuler2Rot(cvMainRotOpen*DEG_TO_RAD),
                     PRIM_COLOR,1,<1.0,1.0,1.0>,0.0,PRIM_COLOR,2,<1.0,1.0,1.0>,1.0]);
                 llSetLinkPrimitiveParamsFast( giJIB, [PRIM_ROT_LOCAL, grSailRot*llEuler2Rot(cvJibRot*DEG_TO_RAD),
@@ -713,7 +710,6 @@ default
                 llStartAnimation(gsAnim);
             }else if(grSailRot.z>0.0) {  //change the sail side
                 giSailSide=1;  //port
-                llSay(0, "port");
                 llSetLinkPrimitiveParamsFast( giMAIN, [PRIM_ROT_LOCAL, grSailRot*llEuler2Rot(cvMainRotOpen*DEG_TO_RAD),
                     PRIM_COLOR,1,<1.0,1.0,1.0>,1.0,PRIM_COLOR,2,<1.0,1.0,1.0>,0.0]);
                 llSetLinkPrimitiveParamsFast( giJIB, [PRIM_ROT_LOCAL, grSailRot*llEuler2Rot(cvJibRot*DEG_TO_RAD),

@@ -151,26 +151,26 @@ integer giVCrl;     //<==== v1.11  invert command and mouselook
 integer giVCtl;    //<==== v1.11  invert command and mouselook
 
 //GLOBAL TIMER VARIABLES
-rotation grBoatRot;
-vector  gvHeading;
-vector  gvLeft;
-vector  gvVelocity;         //vector boat velocity m/s
-float   gfSpeed;             //boat speed in m/s 
-vector  gvApparentWind;               //vector Aparent Wind  radians
-vector  gvNormalApparentWind;              //Normalized vector Aparent Wind radians
-vector  gvAxis;              //up or down axis to turn sail around
-float   gfApparentWindAngle;           //apparent wind, local angle [0;PI] radians
-float   gfTWA;               //Real Wind Angle radians
-integer giHead;            //heading degrees
-rotation grSailRot;
-float   gfSetsail;           //final value of the angle of rotation of the sail radians
-vector  gvSailnormal;       //value of the vector normal to the sail in global coordinates
-vector  gvAction;           //value of the action of the wind on the boat 
-integer giSwhead;
-integer giHeadobj;
-integer giSound;
-integer giSoundOld;
-float   gfSoundWind=5.0158;
+rotation    grBoatRot;
+vector      gvHeading;
+vector      gvLeft;
+vector      gvVelocity;         //vector boat velocity m/s
+float       gfSpeed;             //boat speed in m/s 
+vector      gvApparentWind;               //vector Aparent Wind  radians
+vector      gvNormalApparentWind;              //Normalized vector Aparent Wind radians
+vector      gvAxis;              //up or down axis to turn sail around
+float       gfApparentWindAngle;           //apparent wind, local angle [0;PI] radians
+float       gfTWA;               //Real Wind Angle radians
+integer     giHead;            //heading degrees
+rotation    grSailRot;
+float       gfSetsail;           //final value of the angle of rotation of the sail radians
+vector      gvSailnormal;       //value of the vector normal to the sail in global coordinates
+vector      gvAction;           //value of the action of the wind on the boat 
+integer     giSwhead;
+integer     giHeadobj;
+integer     giSound;
+integer     giSoundOld;
+float       gfSoundWind=5.0158;
 
 //GLOBAL SAIL TIMER VARIABLES
 float gfSailSpeedEffect_x;
@@ -293,6 +293,15 @@ onRaise()
     
     // play raise sound
     llPlaySound(gsSoundRaise,1.0);
+
+    // set animation
+    llSetLinkPrimitiveParamsFast(giHelmLink,[
+        PRIM_POS_LOCAL, <0, .275, .025>,
+        PRIM_ROT_LOCAL,llEuler2Rot(<20.0, 0.0, 0.0>*DEG_TO_RAD)
+    ]);
+    llStopAnimation(gsAnimation);
+    gsAnimation=gsAnimationBase;
+    llStartAnimation(gsAnimation);
 }
 
 onMoor(integer pi)
@@ -310,7 +319,7 @@ onMoor(integer pi)
     llMessageLinked(LINK_THIS, MSGTYPE_MOORED, "glw", "");              
 
     // turn off particles
-    llLinkParticleSystem(giWAKE,[]);
+    setParticles(0);
     
     // set boat moored position
     setMooredPos();  
@@ -320,7 +329,16 @@ onMoor(integer pi)
     lvPos.z=cfPosZ;
     llSetLinkPrimitiveParamsFast(LINK_ROOT,[PRIM_ROT_LOCAL,llEuler2Rot(<0,0,lvVec.z>),PRIM_POSITION,lvPos]); 
     llSetLinkPrimitiveParamsFast(giTEXTHUD,[PRIM_TEXT,"",<1,1,1>,0.0]);
-    if(pi==1) llPlaySound(gsSoundLower,1.0);
+    if(pi==1) {
+        llPlaySound(gsSoundLower,1.0);
+        llSetLinkPrimitiveParamsFast(giHelmLink,[
+            PRIM_POS_LOCAL, <0, .475, .1>,
+            PRIM_ROT_LOCAL,llEuler2Rot(<10.0, 0.0, 0.0>*DEG_TO_RAD)
+        ]);
+        llStopAnimation(gsAnimation);
+        gsAnimation=gsAnimation="steer moored L";
+        llStartAnimation(gsAnimation);
+    }
     else llStopSound();
     giSwSound=giSwSoundOld=0;
 }
@@ -379,23 +397,32 @@ sitHelm()
 {
     key lkAvi=llAvatarOnLinkSitTarget(LINK_ROOT);
     if(lkAvi){
-        if(gkHelm){ 
-            return;
-        }else{
+        if(gkHelm) return;
+        else
+        {
             if(lkAvi==llGetOwner()){
                 gkHelm=lkAvi;
                 giHelmLink=llGetNumberOfPrims();
-                llSetLinkPrimitiveParamsFast(giHelmLink,[PRIM_POS_LOCAL,<-1.9, 0.7, 1.05>]);
-                gsAnimationBase="helmPort";
-                gsAnimation=gsAnimationBase;
+                llSetLinkPrimitiveParamsFast(giHelmLink,[
+                    PRIM_POS_LOCAL, <0, .475, .1>,
+                    PRIM_ROT_LOCAL, llEuler2Rot(<10.0, 0.0, 0.0>*DEG_TO_RAD)
+                ]);
+                gsAnimationBase="steer sit L";
+                gsAnimation="steer moored L";
+                // if(giHelmLink>0) llSetLinkPrimitiveParamsFast(giHelmLink,[PRIM_POS_LOCAL, <0, .275, .025>]);
+                // llSetLinkPrimitiveParamsFast(giHelmLink,[PRIM_ROT_LOCAL,llEuler2Rot(<20.0, 0.0, 0.0>*DEG_TO_RAD)]);
+                // gsAnimationBase="steer sit L";
+                // gsAnimation=gsAnimationBase;
                 llRequestPermissions(gkHelm, PERMISSION_TAKE_CONTROLS | PERMISSION_TRIGGER_ANIMATION | PERMISSION_CONTROL_CAMERA);
-            }else{
-                llSay(0,"Only the owner can skipper the boat");
             }
+            else llSay(0,"Only the owner can skipper the boat");
         }
-    }else{
+    }
+    else
+    {
         // unsit helm
-        if(gkHelm){
+        if(gkHelm)
+        {
             llSetTimerEvent(0.0);
             llReleaseControls();
             llListenRemove(giListenHandle);
@@ -406,7 +433,7 @@ sitHelm()
     }
 }
 
-putCamera()
+setCamera()
 {
     llClearCameraParams(); // reset camera to default
     llSetCameraParams(
@@ -414,60 +441,16 @@ putCamera()
             CAMERA_ACTIVE, 1, // 1 is active, 0 is inactive
             CAMERA_BEHINDNESS_ANGLE, 0.0, // (0 to 180) degrees
             CAMERA_BEHINDNESS_LAG, 0.0, // (0 to 3) seconds
-            CAMERA_DISTANCE, 4.5, // ( 0.5 to 10) meters
+            CAMERA_DISTANCE, 6.5, // ( 0.5 to 10) meters
             CAMERA_FOCUS_LAG, 0.05, // 0.05 , // (0 to 3) seconds
             CAMERA_FOCUS_LOCKED, FALSE, // (TRUE or FALSE)
             CAMERA_FOCUS_THRESHOLD, 0.0, // (0 to 4) meters
-            CAMERA_PITCH, 10.0, // (-45 to 80) degrees\
+            CAMERA_PITCH, 15.0, // (-45 to 80) degrees\
             CAMERA_POSITION_LAG, 0.0, // (0 to 3) seconds
             CAMERA_POSITION_LOCKED, FALSE, // (TRUE or FALSE)
             CAMERA_POSITION_THRESHOLD, 0.0 // (0 to 4) meters 
         ]
     );
-}
-
-handleFLWMsg(integer num, string id)
-{
-    if(num==MSGTYPE_GLWPARAMS) 
-    {                           
-        //<================== glw. You receive the glw wind parameters every second
-        list laParams=llCSV2List((string)id);
-        giWindDir=(integer)llList2String(laParams,0);   //degrees
-        giWindSpeed=(integer)llList2String(laParams,1);  //kt
-        giCurrentDir=(integer)llList2String(laParams,2);  //degrees
-        gfCurrentSpeed=(float)llList2String(laParams,3);  //kt
-        gfWaveHeight=(float)llList2String(laParams,4);    //meters
-        gfWaveHeightMax=(float)llList2String(laParams,5);  //meters
-        giWaveEffects=(integer)llList2String(laParams,6);  //0-no effects  1-steer effect  2-speed effect  3-speed & steer effects
-        giWindBend=(integer)llList2String(laParams,7);      //shadow effect        
-        gvWindVector=angle2Vector(giWindDir,giWindSpeed);   //calc wind vector
-        
-        //DOES THIS NEEDS TO BE A CALCULATION BASED ON THE BOAT GET HULL SPEED FROM LOA * 1.34
-        // is this actually the max speed?
-        gfSoundWind=giWindSpeed*cfKt2Ms*0.7;   //----->the boat maximum speed m/s. Is 65% of the wind speed (depending on the boat)
-        
-        if(gfWaveHeightMax>0) 
-        {
-            gfExtraHeight=gfWaveHeight*cfWaveHoverMax/gfWaveHeightMax;  //calc hover height produced by the waves
-        }
-        else 
-        {
-            gfExtraHeight=0.0;
-        }
-        
-
-    }
-    else if(num==MSGTYPE_GLWINITIALIZE) 
-    {               //<================== glw. You receive it when wind are started, updated or recovery
-        list laParams=llCSV2List((string)id);
-        integer liType=(integer)llList2String(laParams,0);   //0-started  1-recovery  2-updated
-        gsEventName=llList2String(laParams,1);
-        gsGlwDirectorName=llList2String(laParams,2);
-        gsGlwExtra1=llList2String(laParams,3);
-        gsGlwExtra2=llList2String(laParams,4);
-        if(liType==1) giWindMode=(integer)llList2String(laParams,5);  //for recovery save windMode
-        giHudsChannel=llList2Integer(laParams,6);     //<================== glw v1.2 Receive Hud's Channel from Script Receiver
-    }
 }
 
 setWindShadow()
@@ -512,49 +495,91 @@ setSailRotation()
     llSetLinkPrimitiveParamsFast(giBOOM,[PRIM_ROT_LOCAL, grSailRot*llEuler2Rot(cvBoomRot*DEG_TO_RAD)]);   //set boom
 }
 
-updateHUD() {
-    string defaultHUD="HDG: "+(string)giHead+"º  SPD: "+llGetSubString((string)(gfSpeed/cfKt2Ms),0,3)+"kt HEEL: "+(string)llAbs(llRound(gfTotalHeelX*RAD_TO_DEG))+"º\n"
+setParticles(integer toggle)
+{
+    if(toggle)
+    {
+        // optional particles
+        gfBurstrate = 5.0/(20.0*gfSpeed+1.0);
+        gfBurstspeed = 0.3*gfSpeed;
+        gvTemp=llRot2Euler(ZERO_ROTATION/grBoatRot);
+        gvTemp.z=0;
+        gvTemp.y-=25;
+        llSetLinkPrimitiveParamsFast(giWAKE,[PRIM_ROT_LOCAL,llEuler2Rot(gvTemp)*ZERO_ROTATION,PRIM_POS_LOCAL,<cvWakePos.x,cvWakePos.y,cvWakePos.z-gfExtraHeight>]);   
+                
+        llLinkParticleSystem(giWAKE, [
+            PSYS_PART_FLAGS , 0
+            | PSYS_PART_INTERP_COLOR_MASK       //Colors fade from start to end
+            | PSYS_PART_INTERP_SCALE_MASK       //Scale fades from beginning to end
+            ,
+            PSYS_SRC_PATTERN,            PSYS_SRC_PATTERN_ANGLE_CONE
+            ,PSYS_SRC_TEXTURE,           ""                 //UUID of the desired particle texture, or inventory name
+            ,PSYS_SRC_MAX_AGE,           0.0                //Time, in seconds, for particles to be emitted. 0 = forever
+            ,PSYS_PART_MAX_AGE,          10.0               //Lifetime, in seconds, that a particle lasts
+            ,PSYS_SRC_BURST_RATE,        gfBurstrate          //How long, in seconds, between each emission
+            ,PSYS_SRC_BURST_PART_COUNT,  100                //Number of particles per emission
+            ,PSYS_SRC_BURST_RADIUS,      .05                //Radius of emission
+            ,PSYS_SRC_BURST_SPEED_MIN,   gfBurstspeed         //Minimum speed of an emitted particle
+            ,PSYS_SRC_BURST_SPEED_MAX,   gfBurstspeed*1.1     //Maximum speed of an emitted particle
+            ,PSYS_SRC_ACCEL,             <.0,.0,-.1>        //Acceleration of particles each second
+            ,PSYS_PART_START_COLOR,      <1.0,1.0,1.0>      //Starting RGB color
+            ,PSYS_PART_END_COLOR,        <0.3,0.4,0.5>      //Ending RGB color, if INTERP_COLOR_MASK is on
+            ,PSYS_PART_START_ALPHA,      1.0                //Starting transparency, 1 is opaque, 0 is transparent.
+            ,PSYS_PART_END_ALPHA,        0.0                //Ending transparency
+            ,PSYS_PART_START_SCALE,      <0.8,0.10,0.0>     //Starting particle size
+            ,PSYS_PART_END_SCALE,        <1.5,0.05,0.0>     //Ending particle size, if INTERP_SCALE_MASK is on
+            ,PSYS_SRC_ANGLE_BEGIN,       1.62               //Inner angle for ANGLE patterns
+            ,PSYS_SRC_ANGLE_END,         1.62               //Outer angle for ANGLE patterns
+            ,PSYS_SRC_OMEGA,             <0.0,0.0,0.0>      //Rotation of ANGLE patterns, similar to llTargetOmega()
+        ]);
+    }
+    else
+    {
+        llLinkParticleSystem(giWAKE,[]);
+    }
+}
+
+setHUD() {
+    gsTextHud="HDG: "+(string)giHead+"º  SPD: "+llGetSubString((string)(gfSpeed/cfKt2Ms),0,3)+"kt HEEL: "+(string)llAbs(llRound(gfTotalHeelX*RAD_TO_DEG))+"º\n"
     +gsWindMode+" TWD: "+(string)giWindDir+"º TWA: "+(string)llRound(gfTWA*RAD_TO_DEG)+"º TWS: "+(string)giWindSpeed+"kt\n"
     +"AWA: "+(string)llRound(gfApparentWindAngle*RAD_TO_DEG)+"º  SHEET: "+(string)llRound(gfSailAngle*RAD_TO_DEG)+"º";
-    
-    gsTextHud=defaultHUD;
-    
-    // if(DEBUG)
-    // {
-    //     string lsSymbol;
-    //     if(gfWaveHeelX>0) gsSymbol="-";
-    //     else gsSymbol="+";
-    //     gsTextHud="Heading: "+(string)giHead+"º  "+gsWindMode+" Wind=> Dir: "+(string)giWindDir+"º Speed: "+(string)giWindSpeed+"kt\n"+
-    //         "RWA: "+(string)llRound(gfTWA*RAD_TO_DEG)+"º  "+gvTextHudSymbol+" AWA: "+(string)llRound(gfApparentWindAngle*RAD_TO_DEG)+"º"+
-    //             "  Sheet: "+(string)llRound(gfSailAngle*RAD_TO_DEG)+"º  Shadow dir:"+(string)giWindBend+"º\n"+
-    //         "Vel: "+llGetSubString((string)(gfSpeed/cfKt2Ms),0,3)+"kt"+
-    //         "\nPush=> Wind: "+llGetSubString((string)(llFabs(gfSailSpeedEffect_x)/cfKt2Ms),0,3)+"kt"+
-    //             "  Current: "+llGetSubString((string)(gfCurrentSpeedEffect_x/cfKt2Ms),0,3)+"kt"+
-    //             "  Waves: "+llGetSubString((string)(gfWaveSpeedEffect_x/cfKt2Ms),0,3)+"kt\n";
-    //     if(giHud==1)
-    //     {
-    //         gsTextHud+="Heel: "+(string)llRound(gfTotalHeelX*RAD_TO_DEG)+"="+(string)llRound(gfSailHeelEffect_x*RAD_TO_DEG)+gsSymbol+(string)llAbs(llRound(gfWaveHeelX))+"º "+gsWaveBoatHeelSymbol+
-    //             "  Pitch: "+llGetSubString((string)gfWaveHeelY,0,3)+" "+gsWaveBoatPosSymbol+
-    //             "  Drift: "+llGetSubString((string)(gfCurrentSpeedEffect_y/cfKt2Ms),0,3)+"kt"+
-    //         //"  WaveSteer: "+llGetSubString((string)(gfRudderSteerEffect_z*RAD_TO_DEG),0,3)+"+"+llGetSubString((string)(gfWaveSteerEffect_z*RAD_TO_DEG),0,3)+"º"; 
-    //             "  WaveSteer: "+llGetSubString((string)(gfWaveSteerEffect_z*RAD_TO_DEG),0,3)+"º ";
-    //     }
-    //     else
-    //     {
-    //         gsTextHud+="Waves=> MaxH: "+llGetSubString((string)(gfWaveHeightMax*2),0,3)+"m Height: "+
-    //             llGetSubString((string)(gfWaveHeight+gfWaveHeightMax),0,3)+"m  Depth: "+(string)(llWater(ZERO_VECTOR)-llGround(ZERO_VECTOR))+
-    //             "\nTurn: "+llGetSubString((string)(gfRudderSteerEffect_z*RAD_TO_DEG),0,3)+"º ";
-                
-    //     }
-    // }
-    // else
-    // {
-    //     gsTextHud=defaultHUD;
-    //         // +"  Factor: "+llGetSubString((string)(gfApparentWindAngle/gfSailAngle),0,2);
-    //     // if(giWindMode>0 && gfWaveHeightMax>0.0) gsTextHud+="    Wave: "+gsWaveBoatPosSymbol;
-    // }
 
     llSetLinkPrimitiveParamsFast(giTEXTHUD,[PRIM_TEXT,gsTextHud,gvTextHudColor,1.0]);
+}
+
+onGLWMsg(integer num, string id)
+{
+    if(num==MSGTYPE_GLWPARAMS) 
+    {                           
+        //<================== glw. You receive the glw wind parameters every second
+        list laParams=llCSV2List((string)id);
+        giWindDir=(integer)llList2String(laParams,0);   //degrees
+        giWindSpeed=(integer)llList2String(laParams,1);  //kt
+        giCurrentDir=(integer)llList2String(laParams,2);  //degrees
+        gfCurrentSpeed=(float)llList2String(laParams,3);  //kt
+        gfWaveHeight=(float)llList2String(laParams,4);    //meters
+        gfWaveHeightMax=(float)llList2String(laParams,5);  //meters
+        giWaveEffects=(integer)llList2String(laParams,6);  //0-no effects  1-steer effect  2-speed effect  3-speed & steer effects
+        giWindBend=(integer)llList2String(laParams,7);      //shadow effect        
+        gvWindVector=angle2Vector(giWindDir,giWindSpeed);   //calc wind vector
+        gfSoundWind=giWindSpeed*cfKt2Ms*0.7;   //----->the boat maximum speed m/s. Is 65% of the wind speed (depending on the boat)
+        if(gfWaveHeightMax>0) gfExtraHeight=gfWaveHeight*cfWaveHoverMax/gfWaveHeightMax;  //calc hover height produced by the waves
+        else gfExtraHeight=0.0;
+        
+
+    }
+    else if(num==MSGTYPE_GLWINITIALIZE) 
+    {               
+        //<================== glw. You receive it when wind are started, updated or recovery
+        list laParams=llCSV2List((string)id);
+        integer liType=(integer)llList2String(laParams,0);   //0-started  1-recovery  2-updated
+        gsEventName=llList2String(laParams,1);
+        gsGlwDirectorName=llList2String(laParams,2);
+        gsGlwExtra1=llList2String(laParams,3);
+        gsGlwExtra2=llList2String(laParams,4);
+        if(liType==1) giWindMode=(integer)llList2String(laParams,5);  //for recovery save windMode
+        giHudsChannel=llList2Integer(laParams,6);     //<================== glw v1.2 Receive Hud's Channel from Script Receiver
+    }
 }
 
 default
@@ -657,7 +682,7 @@ default
         }
         else if(psMsg=="cam")
         { 
-            if(llGetPermissions() & PERMISSION_CONTROL_CAMERA) putCamera();
+            if(llGetPermissions() & PERMISSION_CONTROL_CAMERA) setCamera();
             else llOwnerSay("You do not have permissions to reset the camera");
         }
         else if (psMsg=="hud")
@@ -748,7 +773,7 @@ default
     
     link_message(integer sender_num, integer num, string str, key id) 
     {
-        if(str=="glw") handleFLWMsg(num, id);
+        if(str=="glw") onGLWMsg(num, id);
     }            
     
     changed(integer piChange)
@@ -782,7 +807,7 @@ default
             TRUE,
             FALSE
         );
-        if ( perm & PERMISSION_CONTROL_CAMERA ) putCamera();
+        if ( perm & PERMISSION_CONTROL_CAMERA ) setCamera();
     }
     
     control(key id, integer level, integer edge)
@@ -815,8 +840,13 @@ default
                 if(gkHelm==llGetLinkKey(giNumOfPrims+1)) giHelmLink=giNumOfPrims+1;
                 else if(gkHelm==llGetLinkKey(giNumOfPrims+2)) giHelmLink=giNumOfPrims+2;
                 else giHelmLink=0;
-                if(giHelmLink>0) llSetLinkPrimitiveParamsFast(giHelmLink,[PRIM_POS_LOCAL,<-1.9, 0.7, 1.05>]);
-                gsAnimationBase="helmPort";
+                if(giHelmLink>0) {
+                    llSetLinkPrimitiveParamsFast(giHelmLink,[
+                        PRIM_POS_LOCAL, <0, .275, .025>,
+                        PRIM_ROT_LOCAL,llEuler2Rot(<20.0, 0.0, 0.0>*DEG_TO_RAD)
+                    ]);
+                }
+                gsAnimationBase="steer sit L";
                 llStopAnimation(gsAnimation);
                 gsAnimation=gsAnimationBase;
                 llStartAnimation(gsAnimation);
@@ -827,8 +857,15 @@ default
                 if(gkHelm==llGetLinkKey(giNumOfPrims+1)) giHelmLink=giNumOfPrims+1;
                 else if(gkHelm==llGetLinkKey(giNumOfPrims+2)) giHelmLink=giNumOfPrims+2;
                 else giHelmLink=0;
-                if(giHelmLink>0) llSetLinkPrimitiveParamsFast(giHelmLink,[PRIM_POS_LOCAL,<-1.9, -0.7, 1.05>]);
-                gsAnimationBase="helmStb";
+                if(giHelmLink>0)
+                {
+                    llSetLinkPrimitiveParamsFast(
+                        giHelmLink,[
+                            PRIM_POS_LOCAL, <0, -.275, .025>,
+                            PRIM_ROT_LOCAL,llEuler2Rot(<-20.0, 0.0, 0.0>*DEG_TO_RAD)
+                    ]);
+                }
+                gsAnimationBase="steer sit R";
                 llStopAnimation(gsAnimation);
                 gsAnimation=gsAnimationBase;
                 llStartAnimation(gsAnimation);
@@ -861,10 +898,7 @@ default
                 //right    //<==== v1.11  invert command and mouselook
                 if (giSailSide < 0) lfHealFactor = -(gfTotalHeelX/6.5);
                 if (giSailSide > 0) lfHealFactor = (gfTotalHeelX/6.5);
-                gfRudderSteerEffect_z=(.6+lfHealFactor+(gfSpeed/100));
-                llStopAnimation(gsAnimation);
-                gsAnimation=gsAnimationBase+"-R";
-                llStartAnimation(gsAnimation);
+                gfRudderSteerEffect_z=(.6+(gfSpeed/100)); // .6 + give turn rate a speed bonus
                 llSetLinkPrimitiveParamsFast(giRUDDER,[PRIM_ROT_LOCAL, llEuler2Rot(<0,0,-21>*DEG_TO_RAD)]);
                 llSetVehicleVectorParam  (VEHICLE_LINEAR_FRICTION_TIMESCALE,<100.0,0.05,0.5>);
             } 
@@ -873,10 +907,7 @@ default
                 //left      //<==== v1.11  invert command and mouselook
                 if (giSailSide < 0) lfHealFactor = (gfTotalHeelX/6.5);
                 if (giSailSide > 0) lfHealFactor = -(gfTotalHeelX/6.5);
-                gfRudderSteerEffect_z=-(.6+lfHealFactor+(gfSpeed/100));
-                llStopAnimation(gsAnimation);
-                gsAnimation=gsAnimationBase+"-L";
-                llStartAnimation(gsAnimation);
+                gfRudderSteerEffect_z=-(.6+(gfSpeed/100)); // .6 + give turn rate a speed bonus
                 llSetLinkPrimitiveParamsFast(giRUDDER,[PRIM_ROT_LOCAL, llEuler2Rot(<0,0,21>*DEG_TO_RAD)]);
                 llSetVehicleVectorParam  (VEHICLE_LINEAR_FRICTION_TIMESCALE,<100.0,0.05,0.5>);
             } 
@@ -884,9 +915,6 @@ default
             {   
                 //up arrow key
                 gfRudderSteerEffect_z=0.0;
-                llStopAnimation(gsAnimation);
-                gsAnimation=gsAnimationBase;
-                llStartAnimation(gsAnimation);
                 llSetLinkPrimitiveParamsFast(giRUDDER,[PRIM_ROT_LOCAL, llEuler2Rot(<0,0,0>*DEG_TO_RAD)]);
                 llSetVehicleVectorParam  (VEHICLE_LINEAR_FRICTION_TIMESCALE,<100.0,100.0,0.5>);
                 gvAngular_motor.z=gfRudderSteerEffect_z;
@@ -991,8 +1019,8 @@ default
             giHead=llRound(llAtan2(gvHeading.x,gvHeading.y)*RAD_TO_DEG);  //global heading in degrees
             if(giHead<0) giHead+=360;
             else if(giHead>359) giHead-=360;
-            //<====== SETTING SAIL AND SAILORS
             
+            //<====== SETTING SAIL AND SAILORS
             float lfPara=0.5*llPow((llFabs(gfApparentWindAngle)-PI_BY_TWO),2);
             if(gfApparentWindAngle>PI_BY_TWO) lfPara=-lfPara-lfPara*2.0*((gfApparentWindAngle-PI_BY_TWO)/PI_BY_TWO);
             else lfPara+=lfPara*4.0*(gfApparentWindAngle/PI_BY_TWO);
@@ -1002,17 +1030,19 @@ default
             //input vars gfCurrentSpeed, giCurrenDir, giHead
             //output vars gfCurrentSpeedEffect_x, gfCurrentSpeedEffect_y
             //local vars gfCurrentAngle, gvCurrentVelocity
-            if(gfCurrentSpeed!=0.0) {
+            if(gfCurrentSpeed!=0.0) 
+            {
                 gfCurrentAngle=(giHead-giCurrentDir+180)*DEG_TO_RAD;  //angle between heading and current direction
                 gfCurrentSpeedEffect_x=llCos(gfCurrentAngle)*gfCurrentSpeed*cfKt2Ms*cfCurrentFactorX; //x-axis boat current speed
                 gfCurrentSpeedEffect_y=llSin(gfCurrentAngle)*gfCurrentSpeed*cfKt2Ms*cfCurrentFactorY; //y-axis boat current speed
 
                 //calc waterspeed
                 gvCurrentVelocity=<llCos(giCurrentDir*DEG_TO_RAD),llSin(giCurrentDir*DEG_TO_RAD),0> * gfCurrentSpeed*cfKt2Ms; //current velocity
-            }else{
+            }
+            else
+            {
                 gfCurrentSpeedEffect_x=gfCurrentSpeedEffect_y=0;
             }
-            //<===CALC CURRENTS AND WATERSPEED
 
             //===>CALC WAVES
             //constants: cfWaveHeelAt1MeterHeight, cfWaveMaxHeelX, cfWaveMaxHeelY
@@ -1124,7 +1154,6 @@ default
                 gsWaveBoatPosSymbol=gsWaveBoatHeelSymbol="";
                 giSwSound=1; //sail
             }
-            //<===CALC WAVES
 
             // boat wave height
             llSetVehicleFloatParam (VEHICLE_HOVER_HEIGHT, gfSeaLevel+cfFloatLevel+gfExtraHeight);
@@ -1156,8 +1185,6 @@ default
             // boat angular motion
             gvAngular_motor=<gfTotalHeelX,gfWaveHeelBoatY*DEG_TO_RAD,gfRudderSteerEffect_z+gfWaveSteerEffect_z+gfMovZ>;  
             llSetVehicleVectorParam(VEHICLE_ANGULAR_MOTOR_DIRECTION, gvAngular_motor);
-            
-            //llOwnerSay("***** "+(string)gfSailSpeedEffect_x+"   "+(string)gfCurrentSpeedEffect_x+"   "+(string)gfWaveSpeedEffect_x);
             
             // boat speed
             gvLinear_motor=<gfSailSpeedEffect_x+gfCurrentSpeedEffect_x+gfWaveSpeedEffect_x,gfCurrentSpeedEffect_y,0.0>;
@@ -1205,49 +1232,15 @@ default
                 giSoundOld=giSound;
             }
 
-            updateHUD();
-
-            
-            
-            // optional particles
-            gfBurstrate = 5.0/(20.0*gfSpeed+1.0);
-            gfBurstspeed = 0.3*gfSpeed;
-            gvTemp=llRot2Euler(ZERO_ROTATION/grBoatRot);
-            gvTemp.z=0;
-            gvTemp.y-=25;
-            llSetLinkPrimitiveParamsFast(giWAKE,[PRIM_ROT_LOCAL,llEuler2Rot(gvTemp)*ZERO_ROTATION,PRIM_POS_LOCAL,<cvWakePos.x,cvWakePos.y,cvWakePos.z-gfExtraHeight>]);   
-                     
-            llLinkParticleSystem(giWAKE, [
-                PSYS_PART_FLAGS , 0
-                | PSYS_PART_INTERP_COLOR_MASK       //Colors fade from start to end
-                | PSYS_PART_INTERP_SCALE_MASK       //Scale fades from beginning to end
-                ,
-                PSYS_SRC_PATTERN,            PSYS_SRC_PATTERN_ANGLE_CONE
-                ,PSYS_SRC_TEXTURE,           ""                 //UUID of the desired particle texture, or inventory name
-                ,PSYS_SRC_MAX_AGE,           0.0                //Time, in seconds, for particles to be emitted. 0 = forever
-                ,PSYS_PART_MAX_AGE,          10.0               //Lifetime, in seconds, that a particle lasts
-                ,PSYS_SRC_BURST_RATE,        gfBurstrate          //How long, in seconds, between each emission
-                ,PSYS_SRC_BURST_PART_COUNT,  100                //Number of particles per emission
-                ,PSYS_SRC_BURST_RADIUS,      .05                //Radius of emission
-                ,PSYS_SRC_BURST_SPEED_MIN,   gfBurstspeed         //Minimum speed of an emitted particle
-                ,PSYS_SRC_BURST_SPEED_MAX,   gfBurstspeed*1.1     //Maximum speed of an emitted particle
-                ,PSYS_SRC_ACCEL,             <.0,.0,-.1>        //Acceleration of particles each second
-                ,PSYS_PART_START_COLOR,      <1.0,1.0,1.0>      //Starting RGB color
-                ,PSYS_PART_END_COLOR,        <0.3,0.4,0.5>      //Ending RGB color, if INTERP_COLOR_MASK is on
-                ,PSYS_PART_START_ALPHA,      1.0                //Starting transparency, 1 is opaque, 0 is transparent.
-                ,PSYS_PART_END_ALPHA,        0.0                //Ending transparency
-                ,PSYS_PART_START_SCALE,      <0.8,0.10,0.0>     //Starting particle size
-                ,PSYS_PART_END_SCALE,        <1.5,0.05,0.0>     //Ending particle size, if INTERP_SCALE_MASK is on
-                ,PSYS_SRC_ANGLE_BEGIN,       1.62               //Inner angle for ANGLE patterns
-                ,PSYS_SRC_ANGLE_END,         1.62               //Outer angle for ANGLE patterns
-                ,PSYS_SRC_OMEGA,             <0.0,0.0,0.0>      //Rotation of ANGLE patterns, similar to llTargetOmega()
-                ]);
+            setHUD();
+            setParticles(1);
                 
             //start timer
             if(gfWaveHeightMax>0) llSetTimerEvent(1.0);
             else llSetTimerEvent(cfTime);
+
         } else {
-            llLinkParticleSystem(giWAKE,[]);
+            setParticles(0);
             llSetTimerEvent( 0.0);
         }
     }

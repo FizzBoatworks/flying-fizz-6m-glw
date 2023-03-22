@@ -24,9 +24,9 @@ integer MSGTYPE_RACING=70012;  //racing mode, for races
 integer MSGTYPE_WORLDWIND=70013;  //world wind mode, to sailing
 
 //SOUNDS
-string gsSoundSail="glw_dboat_sail";
-string gsSoundWaveUp="glw_dboat_waveup";
-string gsSoundWaveDown="glw_dboat_wavedown";
+string gsSoundSailSlow="slow";
+string gsSoundSailFast="sailing";
+string gsSoundSailPlane="planing";
 string gsSoundRaise="glw_dboat_raise";
 string gsSoundLower="glw_dboat_lower";
 
@@ -74,7 +74,7 @@ vector cvJibSizeClose=<4.27706, 0.01000, 0.01000>;
 vector cvJibRot=<0.00000, -21.60000, 0.00000>;                   
 vector cvBoomRot=<0.00000, 0.00000, 0.00000>;
 vector cvRudderRot=<0.00000, 0.00000, 0.00000>;    //rudder rest rotation
-vector cvWakePos=<0.77819,0,-0.07165>;  
+vector cvWakePos=<2.22820, -0.00001, 0.495>;  
 
 //CURRENT CONSTANTS
 float cfCurrentFactorX=0.5;
@@ -168,8 +168,6 @@ vector      gvSailnormal;       //value of the vector normal to the sail in glob
 vector      gvAction;           //value of the action of the wind on the boat 
 integer     giSwhead;
 integer     giHeadobj;
-integer     giSound;
-integer     giSoundOld;
 float       gfSoundWind=5.0158;
 
 //GLOBAL SAIL TIMER VARIABLES
@@ -343,6 +341,29 @@ onMoor(integer pi)
     giSwSound=giSwSoundOld=0;
 }
 
+onHelp() {
+    llOwnerSay("
+            Boat commands:
+                moor                ~ docks the boat
+                raise               ~ start sailing
+                winddir             ~ set personal wind direction *number
+                windspeed           ~ set personal wind speed *number
+                mywind or cruising  ~ subscribe to personal wind or glw cruising wind
+                glw                 ~ set glw wind mode
+                racing              ~ subscribe to racing wind
+                worldwind           ~ subscribe to world wind *not yet enabled
+                recovery            ~ recover glw wind
+                windinfo            ~ print wind info
+                cam                 ~ reset camera to default for this boat
+                hud                 ~ toggle hud modes
+                channel             ~ set boat channel *number 
+                id                  ~ set boat id for racing
+                boatreset           ~ reset boat scripts
+                invert              ~ invert steering controls
+                help                ~ print help
+            ");
+}
+
 setMooredPos()
 {
     llSetLinkPrimitiveParamsFast(giMAIN,[PRIM_SIZE,cvMainSizeClose,PRIM_POS_LOCAL,cvMainPosClose,
@@ -505,7 +526,10 @@ setParticles(integer toggle)
         gvTemp=llRot2Euler(ZERO_ROTATION/grBoatRot);
         gvTemp.z=0;
         gvTemp.y-=25;
-        llSetLinkPrimitiveParamsFast(giWAKE,[PRIM_ROT_LOCAL,llEuler2Rot(gvTemp)*ZERO_ROTATION,PRIM_POS_LOCAL,<cvWakePos.x,cvWakePos.y,cvWakePos.z-gfExtraHeight>]);   
+        llSetLinkPrimitiveParamsFast(giWAKE,[
+            PRIM_ROT_LOCAL,llEuler2Rot(gvTemp)*ZERO_ROTATION,
+            PRIM_POS_LOCAL,<cvWakePos.x,cvWakePos.y,cvWakePos.z-gfExtraHeight>
+        ]);   
                 
         llLinkParticleSystem(giWAKE, [
             PSYS_PART_FLAGS , 0
@@ -513,9 +537,9 @@ setParticles(integer toggle)
             | PSYS_PART_INTERP_SCALE_MASK       //Scale fades from beginning to end
             ,
             PSYS_SRC_PATTERN,            PSYS_SRC_PATTERN_ANGLE_CONE
-            ,PSYS_SRC_TEXTURE,           ""                 //UUID of the desired particle texture, or inventory name
+            ,PSYS_SRC_TEXTURE,           "b1b5356d-9c40-e3a7-70ec-c32066f531f6"                 //UUID of the desired particle texture, or inventory name
             ,PSYS_SRC_MAX_AGE,           0.0                //Time, in seconds, for particles to be emitted. 0 = forever
-            ,PSYS_PART_MAX_AGE,          10.0               //Lifetime, in seconds, that a particle lasts
+            ,PSYS_PART_MAX_AGE,          7.0               //Lifetime, in seconds, that a particle lasts
             ,PSYS_SRC_BURST_RATE,        gfBurstrate          //How long, in seconds, between each emission
             ,PSYS_SRC_BURST_PART_COUNT,  100                //Number of particles per emission
             ,PSYS_SRC_BURST_RADIUS,      .05                //Radius of emission
@@ -540,11 +564,47 @@ setParticles(integer toggle)
 }
 
 setHUD() {
+
+    // optional signal color
+    if(gfSailAngle < 0.435*gfApparentWindAngle)
+    { 
+        gvTextHudColor=cvBlue;
+        gvTextHudSymbol="<>";
+    }
+    else if(gfSailAngle < 0.565*gfApparentWindAngle)
+    {
+        gvTextHudColor=cvGreen;
+        gvTextHudSymbol="==";
+    }
+    else if(gfSailAngle < 0.825*gfApparentWindAngle)
+    { 
+        gvTextHudColor=cvYellow;
+        gvTextHudSymbol="><";
+    }
+    else
+    { 
+        gvTextHudColor=cvRed;
+        gvTextHudSymbol=">><<";
+    }  
+
+    // set wind mode strings for hud
+    if(giWindMode==0) gsWindMode="Personal ";
+    else if(giWindMode==1) gsWindMode="Cruise ";
+    else if(giWindMode==2) gsWindMode="Race "; 
+
     gsTextHud="HDG: "+(string)giHead+"º  SPD: "+llGetSubString((string)(gfSpeed/cfKt2Ms),0,3)+"kt HEEL: "+(string)llAbs(llRound(gfTotalHeelX*RAD_TO_DEG))+"º\n"
     +gsWindMode+" TWD: "+(string)giWindDir+"º TWA: "+(string)llRound(gfTWA*RAD_TO_DEG)+"º TWS: "+(string)giWindSpeed+"kt\n"
     +"AWA: "+(string)llRound(gfApparentWindAngle*RAD_TO_DEG)+"º  SHEET: "+(string)llRound(gfSailAngle*RAD_TO_DEG)+"º";
 
     llSetLinkPrimitiveParamsFast(giTEXTHUD,[PRIM_TEXT,gsTextHud,gvTextHudColor,1.0]);
+}
+
+setSound()
+{
+    if(gfSpeed<0.257) llStopSound();   //<.5kt in m/s
+    else if(gfSpeed>=0.257 && gfSpeed<2.572) llLoopSound(gsSoundSailSlow, 1); //.5kt in m/s <> 5kt in m/s
+    else if(gfSpeed>=2.572 && gfSpeed<4.63) llLoopSound(gsSoundSailFast, 1); //5kt in m/s <> 9kt in m/s
+    else if((gfSpeed>=4.63)) llLoopSound(gsSoundSailPlane, 1); //>9kt in m/s
 }
 
 onGLWMsg(integer num, string id)
@@ -729,26 +789,7 @@ default
         }
         else if(psMsg=="help")
         { 
-            llOwnerSay("
-            Boat commands:
-                moor                ~ docks the boat
-                raise               ~ start sailing
-                winddir             ~ set personal wind direction *number
-                windspeed           ~ set personal wind speed *number
-                mywind or cruising  ~ subscribe to personal wind or glw cruising wind
-                glw                 ~ set glw wind mode
-                racing              ~ subscribe to racing wind
-                worldwind           ~ subscribe to world wind *not yet enabled
-                recovery            ~ recover glw wind
-                windinfo            ~ print wind info
-                cam                 ~ reset camera to default for this boat
-                hud                 ~ toggle hud modes
-                channel             ~ set boat channel *number 
-                id                  ~ set boat id for racing
-                boatreset           ~ reset boat scripts
-                invert              ~ invert steering controls
-                help                ~ print help
-            ");
+            onHelp();
         }
         else if(giWindMode==0) 
         {
@@ -896,18 +937,14 @@ default
             if(edge & level & giVCrr) 
             {    
                 //right    //<==== v1.11  invert command and mouselook
-                if (giSailSide < 0) lfHealFactor = -(gfTotalHeelX/6.5);
-                if (giSailSide > 0) lfHealFactor = (gfTotalHeelX/6.5);
-                gfRudderSteerEffect_z=(.6+(gfSpeed/100)); // .6 + give turn rate a speed bonus
+                gfRudderSteerEffect_z=(.7+(gfSpeed/100)); // .7 + give turn rate a speed bonus
                 llSetLinkPrimitiveParamsFast(giRUDDER,[PRIM_ROT_LOCAL, llEuler2Rot(<0,0,-21>*DEG_TO_RAD)]);
                 llSetVehicleVectorParam  (VEHICLE_LINEAR_FRICTION_TIMESCALE,<100.0,0.05,0.5>);
             } 
             else if(edge & level & giVCrl) 
             {  
                 //left      //<==== v1.11  invert command and mouselook
-                if (giSailSide < 0) lfHealFactor = (gfTotalHeelX/6.5);
-                if (giSailSide > 0) lfHealFactor = -(gfTotalHeelX/6.5);
-                gfRudderSteerEffect_z=-(.6+(gfSpeed/100)); // .6 + give turn rate a speed bonus
+                gfRudderSteerEffect_z=-(.7+(gfSpeed/100)); // .7 + give turn rate a speed bonus
                 llSetLinkPrimitiveParamsFast(giRUDDER,[PRIM_ROT_LOCAL, llEuler2Rot(<0,0,21>*DEG_TO_RAD)]);
                 llSetVehicleVectorParam  (VEHICLE_LINEAR_FRICTION_TIMESCALE,<100.0,0.05,0.5>);
             } 
@@ -957,7 +994,7 @@ default
                 {
                     gvAction=-llVecMag(gvApparentWind)*gvSailnormal;
                 }   
-
+                
                 //efficiency calc
                 if(gfSailAngle==0)
                 { 
@@ -965,16 +1002,14 @@ default
                 }
                 else
                 { 
-                    if(gfApparentWindAngle>2.61799)
-                    {   //tailwind  >150º
+                    if(llFabs(gfSetsail-gfApparentWindAngle)<0.087)
+                    {  // >5º boat in irons
+                        gfSailEfficiancy=0;
+                    }
+                    else if(gfApparentWindAngle>2.96705973)
+                    {   // >170º boat sailing by the lee
                         gfAngle=gfSetsail+PI_BY_TWO;  //angle optimum wind perpendicular to the sail
                         gfSailEfficiancy=(gfAngle-llFabs(gfApparentWindAngle-gfAngle))/gfAngle;  //sail efficiency
-                    //}else if(AwAngle>=MAXSAIL*2 && AwAngle<=MAXSAIL+PI_BY_TWO && setsail==MAXSAIL){  //viento entre 94 y 135 grados
-                    //    efiSail=1.0;
-                    }
-                    else if(llFabs(gfSetsail-gfApparentWindAngle)<0.087)
-                    {  //5º
-                        gfSailEfficiancy=0.0;
                     }
                     else
                     {   //wind less than 90 degrees
@@ -1188,50 +1223,13 @@ default
             
             // boat speed
             gvLinear_motor=<gfSailSpeedEffect_x+gfCurrentSpeedEffect_x+gfWaveSpeedEffect_x,gfCurrentSpeedEffect_y,0.0>;
-            llSetVehicleVectorParam(VEHICLE_LINEAR_MOTOR_DIRECTION, gvLinear_motor);
+            llSetVehicleVectorParam(VEHICLE_LINEAR_MOTOR_DIRECTION, gvLinear_motor);         
             
-            // optional signal color
-            if(gfSailAngle < 0.435*gfApparentWindAngle){ 
-                gvTextHudColor=cvBlue;
-                gvTextHudSymbol="<>";
-            }else if(gfSailAngle < 0.565*gfApparentWindAngle){
-                gvTextHudColor=cvGreen;
-                gvTextHudSymbol="==";
-            }else if(gfSailAngle < 0.825*gfApparentWindAngle){ 
-                gvTextHudColor=cvYellow;
-                gvTextHudSymbol="><";
-            }else{ 
-                gvTextHudColor=cvRed;
-                gvTextHudSymbol=">><<";
-            }
             
-            if(giWindMode==0) gsWindMode="Personal ";
-            else if(giWindMode==1) gsWindMode="Cruise ";
-            else if(giWindMode==2) gsWindMode="Race ";            
-            
+            // set speed to miliseconds
             gfSpeed=llVecMag(llGetVel());    //boat speed in m/s
-            if(gfSpeed<=0.514444) giSound=-1;   //1kt in m/s
-            else if(gfSpeed<=1.54333) giSound=0; //3kt in m/s
-            else{  
-                //sections vel in %  1kt-3kt, 3kt-60%, 60%-85%, 85%-100%
-                //gfSoundWind 70% wind speed
-                if(gfSpeed<gfSoundWind*0.6) giSound=1;
-                else if(gfSpeed<gfSoundWind*0.85) giSound=2;
-                else giSound=3;  
-            }
-
-            if(giSwSound!=giSwSoundOld || giSound!=giSoundOld){
-                //if(giSwSound==3) llOwnerSay("sound: waves down   level: "+(string)giSound+"    vel: "+(string)(gfSpeed/cfKt2Ms)+"/"+(string)(gfSoundWind/cfKt2Ms));
-                //else llOwnerSay("sound: sailing   level: "+(string)giSound+"    vel: "+(string)(gfSpeed/cfKt2Ms)+"/"+(string)(gfSoundWind/cfKt2Ms));
-                if(giSound==-1) llStopSound();
-                else if(giSwSound==0) llLoopSound(gsSoundSail+(string)giSound, 1.0);
-                else if(giSwSound==1) llLoopSound(gsSoundSail+(string)giSound, 1.0);
-                else if(giSwSound==2) llLoopSound(gsSoundSail+(string)giSound, 1.0);
-                else if(giSwSound==3) llLoopSound(gsSoundWaveDown+(string)giSound, 1.0);
-                giSwSoundOld=giSwSound;
-                giSoundOld=giSound;
-            }
-
+            
+            setSound();
             setHUD();
             setParticles(1);
                 
